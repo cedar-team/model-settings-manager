@@ -1,5 +1,24 @@
 import { CSVRowData } from '@/types';
 
+// Test function to verify CSV escaping works correctly
+export const testCSVEscaping = () => {
+  const testData = [
+    {
+      'Simple Field': 'no special chars',
+      'Field, with comma': 'value with, comma',
+      'Field "with quotes"': 'value with "quotes" inside',
+      'Field with\nnewline': 'value with\nnewline inside',
+      'Field with spaces ': ' value with leading and trailing spaces ',
+      'Empty Field': '',
+      'Null Field': null,
+      'Complex Field': 'value with, comma and "quotes" and\nnewlines'
+    }
+  ];
+  
+  console.log('Testing CSV escaping with complex data...');
+  downloadCSV(testData, 'csv-escape-test.csv');
+};
+
 export const parseCSV = (csvText: string): CSVRowData[] => {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
@@ -70,21 +89,40 @@ export const validateCSVColumns = (data: CSVRowData[], expectedColumns: string[]
   return expectedColumns.every(col => col in firstRow);
 };
 
+// Helper function to properly escape CSV field values
+const escapeCSVField = (value: any): string => {
+  // Convert to string and handle null/undefined
+  const stringValue = value == null ? '' : String(value);
+  
+  // Check if the field needs to be wrapped in quotes
+  // Fields with commas, quotes, newlines, or leading/trailing whitespace must be quoted
+  const needsQuoting = stringValue.includes(',') || 
+                      stringValue.includes('"') || 
+                      stringValue.includes('\n') || 
+                      stringValue.includes('\r') || 
+                      stringValue.startsWith(' ') || 
+                      stringValue.endsWith(' ');
+  
+  if (needsQuoting) {
+    // Escape quotes by doubling them and wrap the whole field in quotes
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  
+  return stringValue;
+};
+
 export const downloadCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
   
   const headers = Object.keys(data[0]);
+  
+  // Create CSV content with properly escaped headers and data
   const csvContent = [
-    headers.join(','),
+    // Escape headers too
+    headers.map(header => escapeCSVField(header)).join(','),
+    // Escape all data fields
     ...data.map(row => 
-      headers.map(header => {
-        const value = row[header] || '';
-        // Escape quotes and wrap in quotes if contains comma or quote
-        if (value.includes(',') || value.includes('"')) {
-          return `"${value.replace(/"/g, '""')}"`;
-        }
-        return value;
-      }).join(',')
+      headers.map(header => escapeCSVField(row[header])).join(',')
     )
   ].join('\n');
   

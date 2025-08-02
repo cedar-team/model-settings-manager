@@ -4,7 +4,6 @@ export interface ModelSetting {
   createdOn: string;
   team: string;
   inUse: boolean;
-  deleted: boolean;
   source: 'master' | 'unused' | 'remaining' | 'snowflake';
 }
 
@@ -35,7 +34,6 @@ export interface Stats {
   total: number;
   inUse: number;
   unused: number;
-  deleted: number;
 }
 
 export type SortField = keyof ModelSetting;

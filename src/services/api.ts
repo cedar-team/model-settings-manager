@@ -48,6 +48,15 @@ class ApiService {
     console.log('Returning data:', response.data);
     return response.data;
   }
+
+  async refreshTeamMapping(): Promise<{success: boolean, message: string, settingsCount: number}> {
+    console.log('Making API request to /team-mapping/refresh');
+    const response = await this.request<{success: boolean, message: string, settingsCount: number}>('/team-mapping/refresh', {
+      method: 'POST',
+    });
+    console.log('Team mapping refresh response:', response);
+    return response;
+  }
 }
 
 export const apiService = new ApiService();

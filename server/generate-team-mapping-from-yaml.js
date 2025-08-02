@@ -4,6 +4,66 @@ const yaml = require('js-yaml');
 const { execSync } = require('child_process');
 
 /**
+ * Find the cedar root directory by looking for CODE_OWNERSHIP.yml
+ */
+function findCedarRoot(startPath = process.cwd()) {
+  // Helper function to walk up a directory tree looking for CODE_OWNERSHIP.yml
+  function walkUpFromPath(searchPath) {
+    let currentPath = searchPath;
+    const root = path.parse(currentPath).root;
+    
+    while (currentPath !== root) {
+      const yamlPath = path.join(currentPath, 'CODE_OWNERSHIP.yml');
+      if (fs.existsSync(yamlPath)) {
+        return currentPath;
+      }
+      currentPath = path.dirname(currentPath);
+    }
+    return null;
+  }
+  
+  // First try walking up from the current working directory
+  let cedarPath = walkUpFromPath(startPath);
+  if (cedarPath) return cedarPath;
+  
+  // Then try walking up from the script's directory
+  if (startPath !== __dirname) {
+    cedarPath = walkUpFromPath(__dirname);
+    if (cedarPath) return cedarPath;
+  }
+  
+  // If we're not in a cedar subdirectory, search common development locations
+  const homeDir = require('os').homedir();
+  const commonPaths = [
+    path.join(homeDir, 'code', 'cedar'),
+    path.join(homeDir, 'cedar'),
+    path.join(homeDir, 'projects', 'cedar'),
+    path.join(homeDir, 'dev', 'cedar'),
+    path.join(homeDir, 'Development', 'cedar'),
+    path.join(homeDir, 'Documents', 'cedar'),
+    path.join(homeDir, 'workspace', 'cedar'),
+    path.join(homeDir, 'src', 'cedar'),
+    // Also check if there's a cedar directory in the same parent as this script
+    path.join(path.dirname(__dirname), '..', 'cedar'),
+    path.join(path.dirname(__dirname), '..', '..', 'cedar')
+  ];
+  
+  for (const searchPath of commonPaths) {
+    const yamlPath = path.join(searchPath, 'CODE_OWNERSHIP.yml');
+    if (fs.existsSync(yamlPath)) {
+      return searchPath;
+    }
+  }
+  
+  throw new Error(`Could not find cedar root directory. Searched in:
+  - Current directory tree: ${startPath}
+  - Script directory tree: ${__dirname}
+  - Common locations: ${commonPaths.join(', ')}
+  
+Please ensure the cedar repository exists and contains CODE_OWNERSHIP.yml`);
+}
+
+/**
  * Generate a mapping of model setting names to teams based on CODE_OWNERSHIP.yml
  * This uses the proper team names like "Payment Workflows" and "Clarity"
  */
@@ -11,8 +71,9 @@ function generateTeamMappingFromYaml() {
   console.log('🔍 Parsing CODE_OWNERSHIP.yml for proper team mappings...');
   
   try {
-    // Get Cedar root path - assume we're in model-settings-page subdirectory  
-const cedarRoot = path.join(__dirname, '../../');
+    // Dynamically find Cedar root path by looking for CODE_OWNERSHIP.yml
+    const cedarRoot = findCedarRoot();
+    console.log(`📁 Found cedar root at: ${cedarRoot}`);
     
     // Read and parse the YAML file
     const yamlPath = path.join(cedarRoot, 'CODE_OWNERSHIP.yml');

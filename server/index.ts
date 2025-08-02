@@ -3,6 +3,7 @@ const cors = require('cors');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { generateTeamMappingFromYaml } = require('./generate-team-mapping-from-yaml');
 
 // Define Express types for TypeScript
 interface ExpressRequest {
@@ -84,16 +85,24 @@ interface SnowflakeResponse {
   error?: string;
 }
 
-    // Load team mapping from JSON file
-    let teamMapping: Record<string, string> = {};
-    try {
-      const teamMappingPath = path.join(__dirname, 'team-mapping.json');
-      const teamMappingData = JSON.parse(fs.readFileSync(teamMappingPath, 'utf-8'));
-      teamMapping = teamMappingData.mapping || {};
-      console.log(`📋 Loaded team mapping for ${Object.keys(teamMapping).length} settings`);
-    } catch (error) {
-      console.warn('⚠️  Could not load team mapping:', (error as Error).message);
-    }
+// Load team mapping from JSON file
+let teamMapping: Record<string, string> = {};
+
+function loadTeamMapping(): boolean {
+  try {
+    const teamMappingPath = path.join(__dirname, 'team-mapping.json');
+    const teamMappingData = JSON.parse(fs.readFileSync(teamMappingPath, 'utf-8'));
+    teamMapping = teamMappingData.mapping || {};
+    console.log(`📋 Loaded team mapping for ${Object.keys(teamMapping).length} settings`);
+    return true;
+  } catch (error) {
+    console.warn('⚠️  Could not load team mapping:', (error as Error).message);
+    return false;
+  }
+}
+
+// Load team mapping on startup
+loadTeamMapping();
 
 // Check if Snowflake CLI is installed
 async function checkSnowflakeCLI(): Promise<boolean> {
@@ -192,7 +201,27 @@ async function executeSnowflakeQuery(query: string): Promise<any[]> {
   console.log('Executing Snowflake query...');
   
   return new Promise((resolve, reject) => {
-    const cmd = ['snow', 'sql', '--connection', 'default', '--format', 'json', '-q', query.trim()];
+    const cmd = [
+      'snow',
+      'sql',
+      '--account',
+      'hj82563.us-east-1.privatelink',
+      '--user',
+      process.env.USER || '',
+      '--database',
+      'cedar',
+      '--schema',
+      'bi_public',
+      '--warehouse',
+      'compute_wh',
+      '--authenticator',
+      'externalbrowser',
+      '-x',
+      '--format',
+      'json',
+      '-q',
+      query.trim()
+    ];
     console.log('Executing command:', cmd.join(' '));
     const child = spawn(cmd[0], cmd.slice(1));
     
@@ -359,6 +388,37 @@ app.post('/api/model-settings/refresh', async (req: ExpressRequest, res: Express
   }
 });
 
+// Refresh team mapping endpoint
+app.post('/api/team-mapping/refresh', async (req: ExpressRequest, res: ExpressResponse) => {
+  try {
+    console.log('🔄 Refreshing team mapping from CODE_OWNERSHIP.yml...');
+    
+    // Generate new team mapping
+    const result = await generateTeamMappingFromYaml();
+    
+    // Reload team mapping into memory
+    const loaded = loadTeamMapping();
+    
+    if (loaded) {
+      console.log('✅ Team mapping refreshed successfully');
+      res.json({ 
+        success: true, 
+        message: 'Team mapping refreshed successfully',
+        settingsCount: Object.keys(teamMapping).length,
+        summary: result.summary
+      });
+    } else {
+      throw new Error('Failed to reload team mapping after generation');
+    }
+  } catch (error) {
+    console.error('❌ Error refreshing team mapping:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: (error as Error).message 
+    });
+  }
+});
+
 // New endpoint for detailed model setting information
 app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, res: ExpressResponse) => {
   const { settingName } = req.params;
@@ -472,6 +532,7 @@ app.listen(PORT, () => {
   console.log(`💾 Available endpoints:`);
   console.log(`   GET  /api/model-settings/all`);
   console.log(`   POST /api/model-settings/refresh`);
+  console.log(`   POST /api/team-mapping/refresh`);
   console.log(`   GET  /api/model-settings/:settingName/details`);
   console.log(`   GET  /health`);
 });

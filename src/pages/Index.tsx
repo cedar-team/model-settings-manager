@@ -9,6 +9,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingTeamMapping, setRefreshingTeamMapping] = useState(false);
 
   const loadModelSettings = async () => {
     try {
@@ -22,7 +23,6 @@ const Index = () => {
         createdOn: setting.created_date,
         team: setting.team, // Now available from the API
         inUse: setting.inUse,
-        deleted: false, // Not tracking deletion anymore
         source: 'snowflake' as const
       }));
       setModelSettings(transformedData);
@@ -47,7 +47,6 @@ const Index = () => {
         createdOn: setting.created_date,
         team: setting.team, // Now available from the API
         inUse: setting.inUse,
-        deleted: false, // Not tracking deletion anymore
         source: 'snowflake' as const
       }));
       setModelSettings(transformedData);
@@ -56,6 +55,32 @@ const Index = () => {
       setError(err instanceof Error ? err.message : 'Failed to refresh model settings');
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleRefreshTeamMapping = async () => {
+    try {
+      setRefreshingTeamMapping(true);
+      setError('');
+      const response = await apiService.refreshTeamMapping();
+      console.log('Refreshed team mapping:', response);
+      
+      // After refreshing team mapping, reload the model settings to get updated team info
+      const data = await apiService.getAllModelSettings();
+      const transformedData: ModelSetting[] = data.map(setting => ({
+        name: setting.name,
+        description: setting.description,
+        createdOn: setting.created_date,
+        team: setting.team,
+        inUse: setting.inUse,
+        source: 'snowflake' as const
+      }));
+      setModelSettings(transformedData);
+    } catch (err) {
+      console.error('Failed to refresh team mapping:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh team mapping');
+    } finally {
+      setRefreshingTeamMapping(false);
     }
   };
 
@@ -84,14 +109,25 @@ const Index = () => {
                 Analyze model settings data directly from Snowflake with advanced filtering and insights
               </p>
             </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh Data'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing || refreshingTeamMapping}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
+              </button>
+              <button
+                onClick={handleRefreshTeamMapping}
+                disabled={refreshing || refreshingTeamMapping}
+                className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 disabled:opacity-50 transition-colors"
+                title="Refresh team mappings from CODE_OWNERSHIP.yml"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshingTeamMapping ? 'animate-spin' : ''}`} />
+                {refreshingTeamMapping ? 'Updating Teams...' : 'Refresh Teams'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

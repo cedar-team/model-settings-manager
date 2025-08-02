@@ -58,7 +58,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'in-use' | 'unused' | 'deleted'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in-use' | 'unused'>('all');
   const [selectedSetting, setSelectedSetting] = useState<ModelSetting | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -71,9 +71,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
 
       const matchesStatus = 
         statusFilter === 'all' ||
-        (statusFilter === 'in-use' && item.inUse && !item.deleted) ||
-        (statusFilter === 'unused' && !item.inUse && !item.deleted) ||
-        (statusFilter === 'deleted' && item.deleted);
+        (statusFilter === 'in-use' && item.inUse) ||
+        (statusFilter === 'unused' && !item.inUse)
 
       return matchesSearch && matchesStatus;
     });
@@ -121,8 +120,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
       'Created On': item.createdOn,
       Team: item.team,
       'In Use': item.inUse ? 'Yes' : 'No',
-      Deleted: item.deleted ? 'Yes' : 'No',
-      Status: item.deleted ? 'Deleted' : item.inUse ? 'In Use' : 'Unused'
+      Status: item.inUse ? 'In Use' : 'Unused'
     }));
     downloadCSV(exportData, 'model-settings-export.csv');
   };
@@ -137,9 +135,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
   };
 
   const getStatusBadge = (item: ModelSetting) => {
-    if (item.deleted) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-destructive/10 text-destructive">Deleted</span>;
-    }
     if (item.inUse) {
       return <span className="px-2 py-1 text-xs rounded-full bg-success/10 text-success">In Use</span>;
     }
@@ -182,7 +177,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
             <option value="all">All Status</option>
             <option value="in-use">In Use</option>
             <option value="unused">Unused</option>
-            <option value="deleted">Deleted</option>
           </select>
         </div>
       </div>
@@ -244,7 +238,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                   onClick={() => handleRowClick(item)}
                   className={cn(
                     "border-t hover:bg-muted/25 transition-colors cursor-pointer group",
-                    item.deleted && "opacity-60"
                   )}
                 >
                   <td className="p-4">
