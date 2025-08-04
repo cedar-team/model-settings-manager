@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Download, Filter, ExternalLink, ChevronDown, ChevronUp, Settings, Building2, User, Shield } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Download, ExternalLink, ChevronDown, ChevronUp, Settings, Building2, User, Shield } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { downloadCSV } from '@/utils/csv';
 import { DataTableProps, ModelSetting, SortField, SortDirection } from '@/types';
@@ -56,26 +56,43 @@ const ExpandableText: React.FC<ExpandableTextProps> = ({
 };
 
 export const DataTable: React.FC<DataTableProps> = ({ data }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [descriptionSearch, setDescriptionSearch] = useState('');
+  const [createdOnSearch, setCreatedOnSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in-use' | 'unused'>('all');
+  const [teamFilter, setTeamFilter] = useState<string>('all');
   const [selectedSetting, setSelectedSetting] = useState<ModelSetting | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // Get unique teams for the filter dropdown
+  const uniqueTeams = useMemo(() => {
+    const teams = [...new Set(data.map(item => item.team).filter(Boolean))];
+    return teams.sort();
+  }, [data]);
+
   const filteredAndSortedData = useMemo(() => {
     let filtered = data.filter(item => {
-      const matchesSearch = searchTerm === '' || 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.team.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesName = nameSearch === '' || 
+        item.name.toLowerCase().includes(nameSearch.toLowerCase());
+      
+      const matchesDescription = descriptionSearch === '' || 
+        item.description.toLowerCase().includes(descriptionSearch.toLowerCase());
+      
+      const matchesCreatedOn = createdOnSearch === '' || 
+        item.createdOn.toLowerCase().includes(createdOnSearch.toLowerCase());
 
       const matchesStatus = 
         statusFilter === 'all' ||
         (statusFilter === 'in-use' && item.inUse) ||
-        (statusFilter === 'unused' && !item.inUse)
+        (statusFilter === 'unused' && !item.inUse);
 
-      return matchesSearch && matchesStatus;
+      const matchesTeam = 
+        teamFilter === 'all' || 
+        item.team === teamFilter;
+
+      return matchesName && matchesDescription && matchesCreatedOn && matchesStatus && matchesTeam;
     });
 
     filtered.sort((a, b) => {
@@ -93,7 +110,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
     });
 
     return filtered;
-  }, [data, searchTerm, sortField, sortDirection, statusFilter]);
+  }, [data, nameSearch, descriptionSearch, createdOnSearch, sortField, sortDirection, statusFilter, teamFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -165,115 +182,139 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
             {data.length} total records
           </span>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <Download className="h-4 w-4" />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          {(nameSearch || descriptionSearch || createdOnSearch || teamFilter !== 'all' || statusFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setNameSearch('');
+                setDescriptionSearch('');
+                setCreatedOnSearch('');
+                setTeamFilter('all');
+                setStatusFilter('all');
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+            >
+              Clear Filters
+            </button>
+          )}
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search by name, description, or team..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            <option value="all">All Status</option>
-            <option value="in-use">In Use</option>
-            <option value="unused">Unused</option>
-          </select>
-        </div>
-      </div>
+
 
       {/* Results Summary */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
           Showing {filteredAndSortedData.length} of {data.length} model settings
         </span>
-        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-          💡 Tip: Scroll horizontally to see all columns
-        </span>
       </div>
 
       {/* Table */}
       <div className="border rounded-lg overflow-hidden shadow-sm">
-        <div 
-          className="overflow-x-auto relative"
-          onScroll={(e) => {
-            const element = e.currentTarget;
-            const leftIndicator = element.querySelector('#scroll-left-indicator') as HTMLElement;
-            const rightIndicator = element.querySelector('#scroll-right-indicator') as HTMLElement;
-            
-            if (leftIndicator && rightIndicator) {
-              // Show left indicator if scrolled right
-              leftIndicator.style.opacity = element.scrollLeft > 0 ? '1' : '0';
-              // Show right indicator if not at the end
-              rightIndicator.style.opacity = 
-                element.scrollLeft < (element.scrollWidth - element.clientWidth) ? '1' : '0';
-            }
-          }}
-        >
-          {/* Gradient fade indicators for horizontal scroll */}
-          <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none opacity-0 transition-opacity" id="scroll-left-indicator"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none opacity-100 transition-opacity" id="scroll-right-indicator"></div>
-          
-          <table className="w-full min-w-[800px]">
+        <div className="w-full">
+          <table className="w-full table-fixed">
             <thead className="bg-muted/50 sticky top-0 z-20">
               <tr>
-                <th className="text-left p-4 w-[200px] min-w-[200px]">
-                  <button
-                    onClick={() => handleSort('name')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
-                  >
-                    Name
-                    {getSortIcon('name')}
-                  </button>
+                <th className="text-left p-3 w-[25%]">
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
+                    >
+                      Name
+                      {getSortIcon('name')}
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Search names..."
+                      value={nameSearch}
+                      onChange={(e) => setNameSearch(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 </th>
-                <th className="text-left p-4 w-[300px] min-w-[250px]">
-                  <button
-                    onClick={() => handleSort('description')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
-                  >
-                    Description
-                    {getSortIcon('description')}
-                  </button>
+                <th className="text-left p-3 w-[35%]">
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleSort('description')}
+                      className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
+                    >
+                      Description
+                      {getSortIcon('description')}
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Search descriptions..."
+                      value={descriptionSearch}
+                      onChange={(e) => setDescriptionSearch(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 </th>
-                <th className="text-left p-4 w-[150px] min-w-[120px]">
-                  <button
-                    onClick={() => handleSort('team')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
-                  >
-                    Team
-                    {getSortIcon('team')}
-                  </button>
+                <th className="text-left p-3 w-[15%]">
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleSort('team')}
+                      className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
+                    >
+                      Team
+                      {getSortIcon('team')}
+                    </button>
+                    <select
+                      value={teamFilter}
+                      onChange={(e) => setTeamFilter(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="all">All Teams</option>
+                      {uniqueTeams.map(team => (
+                        <option key={team} value={team}>{team}</option>
+                      ))}
+                    </select>
+                  </div>
                 </th>
-                <th className="text-left p-4 w-[120px] min-w-[100px]">
-                  <button
-                    onClick={() => handleSort('createdOn')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
-                  >
-                    Created On
-                    {getSortIcon('createdOn')}
-                  </button>
+                <th className="text-left p-3 w-[15%]">
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleSort('createdOn')}
+                      className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
+                    >
+                      Created On
+                      {getSortIcon('createdOn')}
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Search dates..."
+                      value={createdOnSearch}
+                      onChange={(e) => setCreatedOnSearch(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 </th>
-                <th className="text-left p-4 w-[100px] min-w-[80px]">
-                  <span className="font-medium">Status</span>
+                <th className="text-left p-3 w-[10%]">
+                  <div className="space-y-2">
+                    <span className="font-medium">Status</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as any)}
+                      className="w-full px-2 py-1 text-xs border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="all">All</option>
+                      <option value="in-use">In Use</option>
+                      <option value="unused">Unused</option>
+                    </select>
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -286,26 +327,26 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                     "border-t hover:bg-muted/25 transition-colors cursor-pointer group",
                   )}
                 >
-                  <td className="p-4 w-[200px]">
-                    <div className="font-medium flex items-center gap-2 truncate">
+                  <td className="p-3 w-[25%]">
+                    <div className="font-medium flex items-center gap-2 overflow-hidden">
                       <span className="truncate" title={item.name}>{item.name}</span>
                       <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </div>
                   </td>
-                  <td className="p-4 w-[300px]">
+                  <td className="p-3 w-[35%]">
                     <ExpandableText 
                       text={item.description} 
-                      maxLength={120}
-                      className="max-w-[280px]"
+                      maxLength={80}
+                      className="text-sm"
                     />
                   </td>
-                  <td className="p-4 w-[150px]">
+                  <td className="p-3 w-[15%]">
                     <div className="text-sm truncate" title={item.team}>{item.team}</div>
                   </td>
-                  <td className="p-4 w-[120px]">
-                    <div className="text-sm text-muted-foreground whitespace-nowrap">{item.createdOn}</div>
+                  <td className="p-3 w-[15%]">
+                    <div className="text-sm text-muted-foreground truncate">{item.createdOn}</div>
                   </td>
-                  <td className="p-4 w-[100px]">
+                  <td className="p-3 w-[10%]">
                     {getStatusBadge(item)}
                   </td>
                 </tr>
@@ -450,8 +491,14 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-background rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="border-b p-6">
           <div className="flex items-center justify-between">

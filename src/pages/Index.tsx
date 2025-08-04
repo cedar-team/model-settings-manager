@@ -121,6 +121,7 @@ const Index = () => {
     total: modelSettings.length,
     inUse: modelSettings.filter(item => item.inUse).length,
     unused: modelSettings.filter(item => !item.inUse).length,
+    missingDescriptions: modelSettings.filter(item => !item.description || item.description.trim() === '').length,
   };
 
   return (
@@ -227,7 +228,7 @@ const Index = () => {
               )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <div className="bg-card rounded-lg p-6 border shadow-sm">
                 <div className="text-2xl font-bold text-primary">{stats.total}</div>
                 <div className="text-sm text-muted-foreground">Total Model Settings</div>
@@ -241,6 +242,12 @@ const Index = () => {
                 <div className="text-sm text-muted-foreground flex items-center gap-1">
                   Unused
                   <Tooltip content="Model settings that are not actively configured (all instances use default values)." />
+                </div>
+              </div>
+              <div className="bg-card rounded-lg p-6 border shadow-sm">
+                <div className="text-2xl font-bold text-destructive">{stats.missingDescriptions}</div>
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  Missing Descriptions
                 </div>
               </div>
             </div>
