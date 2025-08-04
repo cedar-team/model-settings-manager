@@ -550,6 +550,16 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
                     <div className="font-medium">{detailData.length}</div>
                   </div>
                   <div>
+                    <span className="text-muted-foreground">Value Conditionals:</span>
+                    <div className="font-medium">
+                      {detailData.some(item => item.conditional) ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                          {detailData.filter(item => item.conditional).length}
+                        </span>
+                      ) : 'None'}
+                    </div>
+                  </div>
+                  <div>
                     <span className="text-muted-foreground">Created On:</span>
                     <div className="font-medium">{setting.createdOn}</div>
                   </div>
@@ -562,6 +572,28 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
                       />
                     </div>
                   </div>
+                  
+                  {/* Conditional Schema - shown once at model setting level */}
+                  {detailData.some(item => item.conditionalSchema) && (
+                    <div className="md:col-span-3">
+                      <span className="text-muted-foreground">Conditional Schema:</span>
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                            JSON Schema
+                          </span>
+                          <span className="text-xs text-muted-foreground">Applied to all values</span>
+                        </div>
+                        <div className="text-sm font-mono bg-white p-2 rounded border">
+                          <ExpandableText 
+                            text={detailData.find(item => item.conditionalSchema)?.conditionalSchema || ''} 
+                            maxLength={300}
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -573,6 +605,11 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>{defaults.length} default value(s)</span>
                       <span>{overrides.length} override(s)</span>
+                      {[...defaults, ...overrides].some(item => item.conditional) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded">
+                          Conditionals
+                        </span>
+                      )}
                       {overrides.length > 0 && (
                         <div className="flex items-center gap-2">
                           {overrides.filter(o => o.recordType === 'provider_override').length > 0 && (
@@ -619,11 +656,29 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
                             <td className="p-3 font-medium">{item.providerName}</td>
                             <td className="p-3">{item.businessUnitName || '—'}</td>
                             <td className="p-3">
-                              <ExpandableText 
-                                text={item.specificValue || item.defaultValue || '—'} 
-                                maxLength={150}
-                                className="max-w-sm"
-                              />
+                              <div className="space-y-1">
+                                <ExpandableText 
+                                  text={item.specificValue || item.defaultValue || '—'} 
+                                  maxLength={150}
+                                  className="max-w-sm"
+                                />
+                                
+                                {/* Conditional (from model setting value) */}
+                                {item.conditional && (
+                                  <div className="text-xs">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium">
+                                      Conditional
+                                    </span>
+                                    <div className="mt-1 text-muted-foreground">
+                                      <ExpandableText 
+                                        text={item.conditional} 
+                                        maxLength={100}
+                                        className="text-xs"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="p-3">{item.percentEnabled || '—'}%</td>
                             <td className="p-3 text-muted-foreground">
@@ -641,11 +696,29 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
                             <td className="p-3">{item.providerName || 'Unknown'}</td>
                             <td className="p-3">{item.businessUnitName || '—'}</td>
                             <td className="p-3">
-                              <ExpandableText 
-                                text={item.specificValue || item.defaultValue || '—'} 
-                                maxLength={150}
-                                className="max-w-sm"
-                              />
+                              <div className="space-y-1">
+                                <ExpandableText 
+                                  text={item.specificValue || item.defaultValue || '—'} 
+                                  maxLength={150}
+                                  className="max-w-sm"
+                                />
+                                
+                                {/* Conditional (from model setting value) */}
+                                {item.conditional && (
+                                  <div className="text-xs">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium">
+                                      Conditional
+                                    </span>
+                                    <div className="mt-1 text-muted-foreground">
+                                      <ExpandableText 
+                                        text={item.conditional} 
+                                        maxLength={100}
+                                        className="text-xs"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="p-3">{item.percentEnabled || '—'}%</td>
                             <td className="p-3 text-muted-foreground">

@@ -40,8 +40,7 @@ SELECT
   ms.name,
   MAX(ms.description) as description,
   MAX(ms.created_on::date) as created_date
-FROM django_model_settings_modelsetting ms 
-WHERE ms.conditional_schema IS NULL 
+FROM django_model_settings_modelsetting ms
 GROUP BY ms.name
 ORDER BY ms.name;`;
 
@@ -462,6 +461,7 @@ app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, 
         msv.updated_on AS "Value updated on",
         ms.created_on AS "Setting created on",
         ms.conditional_schema as "Conditional schema",
+        msv.conditional as "Conditional",
         CASE 
           WHEN au.username IS NOT NULL THEN 'user_override'
           WHEN pbu.name IS NOT NULL THEN 'business_unit_override'  
@@ -496,6 +496,7 @@ app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, 
         ms.updated_on AS "Value updated on",
         ms.created_on AS "Setting created on",
         ms.conditional_schema as "Conditional schema",
+        NULL as "Conditional",
         'default' as "Record type"
       FROM django_model_settings_modelsetting ms
       WHERE ms.name = '${settingName}'
@@ -521,6 +522,7 @@ app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, 
       valueUpdatedOn: row['Value updated on'] || row.VALUE_UPDATED_ON || '',
       settingCreatedOn: row['Setting created on'] || row.SETTING_CREATED_ON || '',
       conditionalSchema: row['Conditional schema'] || row.CONDITIONAL_SCHEMA || '',
+      conditional: row['Conditional'] || row.CONDITIONAL || '',
       recordType: row['Record type'] || row.RECORD_TYPE || ''
     }));
     
