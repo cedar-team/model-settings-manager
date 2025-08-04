@@ -3,7 +3,7 @@ const cors = require('cors');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { generateTeamMappingFromYaml } = require('./generate-team-mapping-from-yaml');
+// const { generateTeamMappingFromYaml } = require('./generate-team-mapping-from-yaml');
 
 // Define Express types for TypeScript
 interface ExpressRequest {
@@ -124,7 +124,27 @@ async function executeRawSnowflakeQuery(query: string): Promise<any[]> {
   console.log('Executing raw Snowflake query...');
 
   return new Promise((resolve, reject) => {
-    const cmd = ['snow', 'sql', '--connection', 'default', '--format', 'json', '-q', query.trim()];
+    const cmd = [
+      'snow',
+      'sql',
+      '--account',
+      'hj82563.us-east-1.privatelink',
+      '--user',
+      process.env.USER || '',
+      '--database',
+      'cedar',
+      '--schema',
+      'bi_public',
+      '--warehouse',
+      'compute_wh',
+      '--authenticator',
+      'externalbrowser',
+      '-x',
+      '--format',
+      'json',
+      '-q',
+      query.trim()
+    ];
     console.log('Executing command:', cmd.join(' '));
     const child = spawn(cmd[0], cmd.slice(1));
 
@@ -394,7 +414,8 @@ app.post('/api/team-mapping/refresh', async (req: ExpressRequest, res: ExpressRe
     console.log('🔄 Refreshing team mapping from CODE_OWNERSHIP.yml...');
     
     // Generate new team mapping
-    const result = await generateTeamMappingFromYaml();
+    // const result = await generateTeamMappingFromYaml();
+    const result = { summary: 'Team mapping refresh temporarily disabled' };
     
     // Reload team mapping into memory
     const loaded = loadTeamMapping();
@@ -520,6 +541,23 @@ app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, 
   }
 });
 
+// Check Snowflake CLI availability endpoint
+app.get('/api/snowflake/status', async (req: ExpressRequest, res: ExpressResponse) => {
+  try {
+    const isAvailable = await checkSnowflakeCLI();
+    res.json({ 
+      snowflakeCliAvailable: isAvailable,
+      message: isAvailable ? 'Snowflake CLI is available' : 'Snowflake CLI is not installed or not accessible'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      snowflakeCliAvailable: false, 
+      error: 'Error checking Snowflake CLI status',
+      message: 'Snowflake CLI is not installed or not accessible'
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -534,5 +572,6 @@ app.listen(PORT, () => {
   console.log(`   POST /api/model-settings/refresh`);
   console.log(`   POST /api/team-mapping/refresh`);
   console.log(`   GET  /api/model-settings/:settingName/details`);
+  console.log(`   GET  /api/snowflake/status`);
   console.log(`   GET  /health`);
 });

@@ -4,10 +4,11 @@ A tool to manage and view Django model settings with team ownership information.
 
 ## Quick Start
 
-1. **Generate team mapping:**
+First, make sure you're connected to Tailscale as you have to be able to query Snowflake!
+
+1. **Setup**
    ```bash
-   cd server
-   node generate-team-mapping-from-yaml.js
+   brew install snowflake-cli && npm i
    ```
 
 2. **Start the server:**
@@ -17,13 +18,8 @@ A tool to manage and view Django model settings with team ownership information.
 
 3. **Open the app:**
    ```bash
-   open http://localhost:3001
+   open localhost:5173
    ```
-
-## API Endpoints
-
-- `GET /api/model-settings/all` - Get all model settings
-- `POST /api/model-settings/refresh` - Refresh data from Snowflake
 
 ## Requirements
 

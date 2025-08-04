@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Download, Filter, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Download, Filter, ExternalLink, ChevronDown, ChevronUp, Settings, Building2, User, Shield } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { downloadCSV } from '@/utils/csv';
 import { DataTableProps, ModelSetting, SortField, SortDirection } from '@/types';
+import { apiService } from '@/services/api';
 
 export type { ModelSetting };
 
@@ -125,6 +126,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
     downloadCSV(exportData, 'model-settings-export.csv');
   };
 
+
+
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) {
       return <ArrowUpDown className="h-4 w-4" />;
@@ -134,17 +137,34 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
       <ArrowDown className="h-4 w-4" />;
   };
 
+
+
   const getStatusBadge = (item: ModelSetting) => {
     if (item.inUse) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-success/10 text-success">In Use</span>;
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-success/10 text-success border border-success/20">
+          <div className="w-1.5 h-1.5 bg-success rounded-full" />
+          In Use
+        </span>
+      );
     }
-    return <span className="px-2 py-1 text-xs rounded-full bg-warning/10 text-warning">Unused</span>;
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/10 text-warning border border-warning/20">
+        <div className="w-1.5 h-1.5 bg-warning rounded-full" />
+        Unused
+      </span>
+    );
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Model Settings Data</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold">Model Settings Data</h2>
+          <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+            {data.length} total records
+          </span>
+        </div>
         <button
           onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
@@ -182,53 +202,79 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
       </div>
 
       {/* Results Summary */}
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredAndSortedData.length} of {data.length} model settings
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          Showing {filteredAndSortedData.length} of {data.length} model settings
+        </span>
+        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+          💡 Tip: Scroll horizontally to see all columns
+        </span>
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/50">
+      <div className="border rounded-lg overflow-hidden shadow-sm">
+        <div 
+          className="overflow-x-auto relative"
+          onScroll={(e) => {
+            const element = e.currentTarget;
+            const leftIndicator = element.querySelector('#scroll-left-indicator') as HTMLElement;
+            const rightIndicator = element.querySelector('#scroll-right-indicator') as HTMLElement;
+            
+            if (leftIndicator && rightIndicator) {
+              // Show left indicator if scrolled right
+              leftIndicator.style.opacity = element.scrollLeft > 0 ? '1' : '0';
+              // Show right indicator if not at the end
+              rightIndicator.style.opacity = 
+                element.scrollLeft < (element.scrollWidth - element.clientWidth) ? '1' : '0';
+            }
+          }}
+        >
+          {/* Gradient fade indicators for horizontal scroll */}
+          <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none opacity-0 transition-opacity" id="scroll-left-indicator"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none opacity-100 transition-opacity" id="scroll-right-indicator"></div>
+          
+          <table className="w-full min-w-[800px]">
+            <thead className="bg-muted/50 sticky top-0 z-20">
               <tr>
-                <th className="text-left p-4">
+                <th className="text-left p-4 w-[200px] min-w-[200px]">
                   <button
                     onClick={() => handleSort('name')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
                   >
                     Name
                     {getSortIcon('name')}
                   </button>
                 </th>
-                <th className="text-left p-4">
+                <th className="text-left p-4 w-[300px] min-w-[250px]">
                   <button
                     onClick={() => handleSort('description')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
                   >
                     Description
                     {getSortIcon('description')}
                   </button>
                 </th>
-                <th className="text-left p-4">
+                <th className="text-left p-4 w-[150px] min-w-[120px]">
                   <button
                     onClick={() => handleSort('team')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
                   >
                     Team
                     {getSortIcon('team')}
                   </button>
                 </th>
-                <th className="text-left p-4">
+                <th className="text-left p-4 w-[120px] min-w-[100px]">
                   <button
                     onClick={() => handleSort('createdOn')}
-                    className="flex items-center gap-2 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 hover:text-primary transition-colors font-medium"
                   >
                     Created On
                     {getSortIcon('createdOn')}
                   </button>
                 </th>
-                <th className="text-left p-4">Status</th>
+                <th className="text-left p-4 w-[100px] min-w-[80px]">
+                  <span className="font-medium">Status</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -240,26 +286,26 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                     "border-t hover:bg-muted/25 transition-colors cursor-pointer group",
                   )}
                 >
-                  <td className="p-4">
-                    <div className="font-medium flex items-center gap-2">
-                      {item.name}
-                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <td className="p-4 w-[200px]">
+                    <div className="font-medium flex items-center gap-2 truncate">
+                      <span className="truncate" title={item.name}>{item.name}</span>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </div>
                   </td>
-                  <td className="p-4">
+                  <td className="p-4 w-[300px]">
                     <ExpandableText 
                       text={item.description} 
-                      maxLength={80}
-                      className="max-w-xs"
+                      maxLength={120}
+                      className="max-w-[280px]"
                     />
                   </td>
-                  <td className="p-4">
-                    <div className="text-sm">{item.team}</div>
+                  <td className="p-4 w-[150px]">
+                    <div className="text-sm truncate" title={item.team}>{item.team}</div>
                   </td>
-                  <td className="p-4">
-                    <div className="text-sm text-muted-foreground">{item.createdOn}</div>
+                  <td className="p-4 w-[120px]">
+                    <div className="text-sm text-muted-foreground whitespace-nowrap">{item.createdOn}</div>
                   </td>
-                  <td className="p-4">
+                  <td className="p-4 w-[100px]">
                     {getStatusBadge(item)}
                   </td>
                 </tr>
@@ -304,14 +350,8 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
         setLoading(true);
         setError('');
         
-        const response = await fetch(`http://localhost:3001/api/model-settings/${encodeURIComponent(setting.name)}/details`);
-        const result = await response.json();
-        
-        if (result.success) {
-          setDetailData(result.data);
-        } else {
-          setError(result.error || 'Failed to load details');
-        }
+        const data = await apiService.getModelSettingDetails(setting.name, true); // Use cache
+        setDetailData(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load details');
       } finally {
@@ -345,7 +385,7 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
           'user_override': 3,
           'override': 4
         };
-        return (typeOrder[a.recordType] || 99) - (typeOrder[b.recordType] || 99);
+        return (typeOrder[a.recordType as keyof typeof typeOrder] || 99) - (typeOrder[b.recordType as keyof typeof typeOrder] || 99);
       });
     });
     
@@ -357,31 +397,36 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
     switch (recordType) {
       case 'default':
         return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+            <Settings className="h-3 w-3" />
             Default
           </span>
         );
       case 'provider_override':
         return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-success/10 text-success border border-success/20">
+            <Shield className="h-3 w-3" />
             Provider
           </span>
         );
       case 'business_unit_override':
         return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-purple-500/10 text-purple-700 border border-purple-500/20">
+            <Building2 className="h-3 w-3" />
             Business Unit
           </span>
         );
       case 'user_override':
         return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/10 text-warning border border-warning/20">
+            <User className="h-3 w-3" />
             User
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground border border-border">
+            <Settings className="h-3 w-3" />
             Override
           </span>
         );
@@ -392,15 +437,15 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
   const getRowStyling = (recordType: string) => {
     switch (recordType) {
       case 'default':
-        return 'border-b bg-blue-50/50';
+        return 'border-b bg-primary/5 hover:bg-primary/10 transition-colors';
       case 'provider_override':
-        return 'border-b bg-green-50/30';
+        return 'border-b bg-success/5 hover:bg-success/10 transition-colors';
       case 'business_unit_override':
-        return 'border-b bg-purple-50/30';
+        return 'border-b bg-purple-500/5 hover:bg-purple-500/10 transition-colors';
       case 'user_override':
-        return 'border-b bg-orange-50/30';
+        return 'border-b bg-warning/5 hover:bg-warning/10 transition-colors';
       default:
-        return 'border-b';
+        return 'border-b hover:bg-muted/50 transition-colors';
     }
   };
 
@@ -477,33 +522,44 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
               {Object.entries(groupedData).map(([pod, { defaults, overrides }]) => (
                 <div key={pod} className="border rounded-lg overflow-hidden">
                   <div className="bg-muted/20 px-4 py-3 border-b">
-                    <h4 className="font-semibold">Pod: {pod}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {defaults.length} default value(s), {overrides.length} override(s)
+                    <h4 className="font-semibold text-base">Pod: <span className="font-mono text-primary">{pod}</span></h4>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>{defaults.length} default value(s)</span>
+                      <span>{overrides.length} override(s)</span>
                       {overrides.length > 0 && (
-                        <span className="ml-2">
-                          ({[
-                            overrides.filter(o => o.recordType === 'provider_override').length > 0 && 
-                              `${overrides.filter(o => o.recordType === 'provider_override').length} provider`,
-                            overrides.filter(o => o.recordType === 'business_unit_override').length > 0 && 
-                              `${overrides.filter(o => o.recordType === 'business_unit_override').length} business unit`,
-                            overrides.filter(o => o.recordType === 'user_override').length > 0 && 
-                              `${overrides.filter(o => o.recordType === 'user_override').length} user`
-                          ].filter(Boolean).join(', ')})
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {overrides.filter(o => o.recordType === 'provider_override').length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-success/10 text-success rounded">
+                              <Shield className="h-3 w-3" />
+                              {overrides.filter(o => o.recordType === 'provider_override').length}
+                            </span>
+                          )}
+                          {overrides.filter(o => o.recordType === 'business_unit_override').length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-500/10 text-purple-700 rounded">
+                              <Building2 className="h-3 w-3" />
+                              {overrides.filter(o => o.recordType === 'business_unit_override').length}
+                            </span>
+                          )}
+                          {overrides.filter(o => o.recordType === 'user_override').length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-warning/10 text-warning rounded">
+                              <User className="h-3 w-3" />
+                              {overrides.filter(o => o.recordType === 'user_override').length}
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </p>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-muted/10">
                         <tr>
-                          <th className="text-left p-3 border-b">Type</th>
-                          <th className="text-left p-3 border-b">Provider</th>
-                          <th className="text-left p-3 border-b">Business Unit</th>
-                          <th className="text-left p-3 border-b">Value</th>
-                          <th className="text-left p-3 border-b">Percent</th>
-                          <th className="text-left p-3 border-b">Updated</th>
+                          <th className="text-left p-3 border-b font-medium text-xs uppercase tracking-wide text-muted-foreground">Type</th>
+                          <th className="text-left p-3 border-b font-medium text-xs uppercase tracking-wide text-muted-foreground">Provider</th>
+                          <th className="text-left p-3 border-b font-medium text-xs uppercase tracking-wide text-muted-foreground">Business Unit</th>
+                          <th className="text-left p-3 border-b font-medium text-xs uppercase tracking-wide text-muted-foreground">Value</th>
+                          <th className="text-left p-3 border-b font-medium text-xs uppercase tracking-wide text-muted-foreground">Percent</th>
+                          <th className="text-left p-3 border-b font-medium text-xs uppercase tracking-wide text-muted-foreground">Updated</th>
                         </tr>
                       </thead>
                       <tbody>
