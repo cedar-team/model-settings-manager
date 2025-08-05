@@ -1,3 +1,5 @@
+![Screenshot](screenshot.png)
+
 # Model Settings Helper
 
 A tool to manage and view Django model settings with team ownership information.
