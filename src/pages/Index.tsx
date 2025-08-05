@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DataTable } from '@/components/data-table';
 import { Tooltip } from '@/components/tooltip';
 import { Database, RefreshCw, BarChart3, Zap } from 'lucide-react';
@@ -14,6 +14,7 @@ const Index = () => {
   const [refreshingTeamMapping, setRefreshingTeamMapping] = useState(false);
   const [snowflakeAvailable, setSnowflakeAvailable] = useState<boolean | null>(null);
   const [checkingSnowflake, setCheckingSnowflake] = useState(true);
+
 
   const loadModelSettings = async () => {
     try {
@@ -123,6 +124,8 @@ const Index = () => {
     unused: modelSettings.filter(item => !item.inUse).length,
     missingDescriptions: modelSettings.filter(item => !item.description || item.description.trim() === '').length,
   };
+
+
 
   return (
     <div className="min-h-screen bg-background">

@@ -72,6 +72,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
     return teams.sort();
   }, [data]);
 
+
+
   const filteredAndSortedData = useMemo(() => {
     let filtered = data.filter(item => {
       const matchesName = nameSearch === '' || 
@@ -194,7 +196,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
               }}
               className="flex items-center gap-2 px-3 py-2 text-sm bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
             >
-              Clear Filters
+              Clear All Filters
             </button>
           )}
           <button
@@ -211,9 +213,11 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
 
       {/* Results Summary */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
-          Showing {filteredAndSortedData.length} of {data.length} model settings
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-muted-foreground">
+            Showing {filteredAndSortedData.length} of {data.length} model settings
+          </span>
+        </div>
       </div>
 
       {/* Table */}
