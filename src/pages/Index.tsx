@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DataTable } from '@/components/data-table';
 import { Tooltip } from '@/components/tooltip';
-import { Database, RefreshCw, BarChart3, Zap } from 'lucide-react';
+import { Database, RefreshCw, BarChart3, Zap, Copy, Check } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { cacheService } from '@/services/cache';
 import { ModelSetting } from '@/types';
@@ -14,7 +14,52 @@ const Index = () => {
   const [refreshingTeamMapping, setRefreshingTeamMapping] = useState(false);
   const [snowflakeAvailable, setSnowflakeAvailable] = useState<boolean | null>(null);
   const [checkingSnowflake, setCheckingSnowflake] = useState(true);
+  const [copied, setCopied] = useState(false);
 
+  const PR_TEMPLATE = `### Rationale
+This model setting is no longer in use.
+
+
+### Solution
+This removes it.
+
+
+### Test Plan
+#### List the steps to view your change locally, if possible.
+N/A (nothing should change)
+
+#### If you did not add automated tests, explain why.
+N/A (nothing should change)
+
+#### How will you confirm this works after it has been deployed?
+Ensure no alerts are thrown.
+
+### Security Impact
+Please answer the questions below about your PR.
+If yes, please explain and add \`cedar-team/security\` as reviewers.
+#### Does this involve authentication, permissions, secrets or encryption?
+No
+#### Will this change allow humans to enter data into Cedar?
+No
+#### Will this change collect a new type of data? For example, introducing the collection of driver's licenses when we didn't collect them before, etc.
+No
+#### Does this PR add new vendors or add/update (python, JS, etc.) libraries?
+No
+#### Are there any security questions?
+No
+
+### Additional Reviewers
+N/A`;
+
+  const copyPRTemplate = async () => {
+    try {
+      await navigator.clipboard.writeText(PR_TEMPLATE);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
 
   const loadModelSettings = async () => {
     try {
@@ -142,28 +187,48 @@ const Index = () => {
                 Analyze model settings data directly from Snowflake
               </p>
             </div>
-            {snowflakeAvailable === true && (
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              <Tooltip content="Feel free to use this template in your GitHub PR if you're removing a model setting!">
                 <button
-                  onClick={handleRefresh}
-                  disabled={refreshing || refreshingTeamMapping}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  onClick={copyPRTemplate}
+                  className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 transition-colors"
                 >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh Data'}
-                </button>
-                              <Tooltip content="Refreshes team mappings from CODE_OWNERSHIP.yml in your local filesystem. Make sure you're on the master branch in the cedar repo for the most up-to-date team assignments.">
-                <button
-                  onClick={handleRefreshTeamMapping}
-                  disabled={refreshing || refreshingTeamMapping}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 disabled:opacity-50 transition-colors"
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshingTeamMapping ? 'animate-spin' : ''}`} />
-                  {refreshingTeamMapping ? 'Updating Teams...' : 'Refresh Teams'}
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy removal PR template
+                    </>
+                  )}
                 </button>
               </Tooltip>
-              </div>
-            )}
+              {snowflakeAvailable === true && (
+                <>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing || refreshingTeamMapping}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Refreshing...' : 'Refresh Data'}
+                  </button>
+                  <Tooltip content="Refreshes team mappings from CODE_OWNERSHIP.yml in your local filesystem. Make sure you're on the master branch in the cedar repo for the most up-to-date team assignments.">
+                    <button
+                      onClick={handleRefreshTeamMapping}
+                      disabled={refreshing || refreshingTeamMapping}
+                      className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 disabled:opacity-50 transition-colors"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshingTeamMapping ? 'animate-spin' : ''}`} />
+                      {refreshingTeamMapping ? 'Updating Teams...' : 'Refresh Teams'}
+                    </button>
+                  </Tooltip>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
