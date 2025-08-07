@@ -447,7 +447,20 @@ app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, 
     console.log(`🔍 Getting details for setting: ${settingName}`);
     
     // Combined query to show both specific overrides AND default values per pod
+    // Also includes pods where the setting doesn't exist to show "Not Present"
     const detailQuery = `
+      WITH all_pods AS (
+        SELECT DISTINCT pod_prefix as pod FROM django_model_settings_modelsetting
+      ),
+      setting_pods AS (
+        SELECT DISTINCT pod_prefix as pod FROM django_model_settings_modelsetting WHERE name = '${settingName}'
+      ),
+      missing_pods AS (
+        SELECT ap.pod FROM all_pods ap
+        LEFT JOIN setting_pods sp ON ap.pod = sp.pod
+        WHERE sp.pod IS NULL
+      )
+      
       -- Specific provider/business unit/auth user overrides
       SELECT
         ms.name AS "Setting Name",
@@ -500,6 +513,25 @@ app.get('/api/model-settings/:settingName/details', async (req: ExpressRequest, 
         'default' as "Record type"
       FROM django_model_settings_modelsetting ms
       WHERE ms.name = '${settingName}'
+      
+      UNION ALL
+      
+      -- Missing pods (where setting doesn't exist)
+      SELECT
+        '${settingName}' AS "Setting Name",
+        'Not Present' AS "Provider name",
+        'N/A' AS "Specific value",
+        'N/A' AS "Default value",
+        '' AS "Business Unit Name",
+        0 AS "Percent enabled",
+        'not_present' as "Value key",
+        mp.pod as "Pod",
+        NULL AS "Value updated on",
+        NULL AS "Setting created on",
+        NULL as "Conditional schema",
+        NULL as "Conditional",
+        'not_present' as "Record type"
+      FROM missing_pods mp
       
       ORDER BY
         "Pod", "Record type", "Provider name"

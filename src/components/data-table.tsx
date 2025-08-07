@@ -407,15 +407,17 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
     loadDetails();
   }, [setting.name]);
 
-  // Group data by pod for better organization, separating defaults from different override types
+  // Group data by pod for better organization, separating defaults, overrides, and not_present
   const groupedData = useMemo(() => {
-    const groups: Record<string, { defaults: any[], overrides: any[] }> = {};
+    const groups: Record<string, { defaults: any[], overrides: any[], notPresent: any[] }> = {};
     detailData.forEach(item => {
       const pod = item.pod || 'Unknown';
-      if (!groups[pod]) groups[pod] = { defaults: [], overrides: [] };
+      if (!groups[pod]) groups[pod] = { defaults: [], overrides: [], notPresent: [] };
       
       if (item.recordType === 'default') {
         groups[pod].defaults.push(item);
+      } else if (item.recordType === 'not_present') {
+        groups[pod].notPresent.push(item);
       } else {
         groups[pod].overrides.push(item);
       }
@@ -466,6 +468,13 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/10 text-warning border border-warning/20">
             <User className="h-3 w-3" />
             User
+          </span>
+        );
+      case 'not_present':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+            <span className="h-3 w-3 rounded-full bg-red-400" />
+            Not Present
           </span>
         );
       default:
@@ -602,39 +611,48 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
               </div>
 
               {/* Pod-organized details */}
-              {Object.entries(groupedData).map(([pod, { defaults, overrides }]) => (
+              {Object.entries(groupedData).map(([pod, { defaults, overrides, notPresent }]) => (
                 <div key={pod} className="border rounded-lg overflow-hidden">
                   <div className="bg-muted/20 px-4 py-3 border-b">
                     <h4 className="font-semibold text-base">Pod: <span className="font-mono text-primary">{pod}</span></h4>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{defaults.length} default value(s)</span>
-                      <span>{overrides.length} override(s)</span>
-                      {[...defaults, ...overrides].some(item => item.conditional) && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded">
-                          Conditionals
+                      {notPresent.length > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-red-50 text-red-700 rounded border border-red-200 font-medium">
+                          <span className="h-2 w-2 rounded-full bg-red-400" />
+                          Setting Not Present
                         </span>
-                      )}
-                      {overrides.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          {overrides.filter(o => o.recordType === 'provider_override').length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-success/10 text-success rounded">
-                              <Shield className="h-3 w-3" />
-                              {overrides.filter(o => o.recordType === 'provider_override').length}
+                      ) : (
+                        <>
+                          <span>{defaults.length} default value(s)</span>
+                          <span>{overrides.length} override(s)</span>
+                          {[...defaults, ...overrides].some(item => item.conditional) && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded">
+                              Conditionals
                             </span>
                           )}
-                          {overrides.filter(o => o.recordType === 'business_unit_override').length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-500/10 text-purple-700 rounded">
-                              <Building2 className="h-3 w-3" />
-                              {overrides.filter(o => o.recordType === 'business_unit_override').length}
-                            </span>
+                          {overrides.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              {overrides.filter(o => o.recordType === 'provider_override').length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-success/10 text-success rounded">
+                                  <Shield className="h-3 w-3" />
+                                  {overrides.filter(o => o.recordType === 'provider_override').length}
+                                </span>
+                              )}
+                              {overrides.filter(o => o.recordType === 'business_unit_override').length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-500/10 text-purple-700 rounded">
+                                  <Building2 className="h-3 w-3" />
+                                  {overrides.filter(o => o.recordType === 'business_unit_override').length}
+                                </span>
+                              )}
+                              {overrides.filter(o => o.recordType === 'user_override').length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-warning/10 text-warning rounded">
+                                  <User className="h-3 w-3" />
+                                  {overrides.filter(o => o.recordType === 'user_override').length}
+                                </span>
+                              )}
+                            </div>
                           )}
-                          {overrides.filter(o => o.recordType === 'user_override').length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-warning/10 text-warning rounded">
-                              <User className="h-3 w-3" />
-                              {overrides.filter(o => o.recordType === 'user_override').length}
-                            </span>
-                          )}
-                        </div>
+                        </>
                       )}
                     </div>
                   </div>
@@ -728,6 +746,22 @@ const ModelSettingDetailModal: React.FC<ModelSettingDetailModalProps> = ({ setti
                             <td className="p-3 text-muted-foreground">
                               {item.valueUpdatedOn ? new Date(item.valueUpdatedOn).toLocaleDateString() : '—'}
                             </td>
+                          </tr>
+                        ))}
+                        
+                        {/* Show not present status */}
+                        {notPresent.map((item, index) => (
+                          <tr key={`not-present-${index}`} className="bg-red-50/50">
+                            <td className="p-3">
+                              {getRecordTypeBadge(item.recordType)}
+                            </td>
+                            <td className="p-3 text-muted-foreground italic">{item.providerName}</td>
+                            <td className="p-3 text-muted-foreground">—</td>
+                            <td className="p-3 text-muted-foreground italic">
+                              This model setting is not configured for this pod
+                            </td>
+                            <td className="p-3 text-muted-foreground">—</td>
+                            <td className="p-3 text-muted-foreground">—</td>
                           </tr>
                         ))}
                       </tbody>
