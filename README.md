@@ -8,7 +8,7 @@ A tool to manage and view Django model settings with team ownership information.
 
 First, make sure you're connected to Tailscale as you have to be able to query Snowflake!
 
-1. **Setup**
+1. **Setup (in the root directory of this repo)**
    ```bash
    brew install snowflake-cli && npm i
    ```
