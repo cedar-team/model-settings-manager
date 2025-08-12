@@ -239,6 +239,7 @@ N/A`;
           <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
             <p className="font-medium">Error loading model settings:</p>
             <p className="text-sm">{error}</p>
+            <p className="text-sm">Are you connected to Tailscale?</p>
           </div>
         )}
 
