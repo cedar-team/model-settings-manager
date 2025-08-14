@@ -626,9 +626,22 @@ app.get('/api/providers/:providerId/model-settings', async (req: ExpressRequest,
   try {
     console.log(`🔍 Getting model settings for provider ID: ${providerId}`);
     
-    // Query to get all model settings that have overrides for this provider or its business units
+    // Query to get all model settings for this provider's pod, including those with and without overrides
     const providerSettingsQuery = `
-      WITH provider_settings AS (
+      WITH provider_pod AS (
+        -- First, determine what pod this provider operates in by looking at existing overrides
+        SELECT DISTINCT ms.pod_prefix as pod
+        FROM django_model_settings_modelsetting ms
+        JOIN django_model_settings_modelsettingvalue msv
+          ON ms.id = msv.model_setting_id AND ms.pod_prefix = msv.pod_prefix
+        JOIN provider_business_unit pbu
+          ON CAST(SPLIT_PART(msv.key, ':', 2) AS INT) = pbu.id 
+          AND SPLIT_PART(msv.key, ':', 1) = 'provider_business_unit'
+        JOIN provider p ON pbu.provider_id = p.id
+        WHERE p.id = ${providerId}
+        LIMIT 1
+      ),
+      provider_settings AS (
         -- Provider-level overrides
         SELECT DISTINCT
           ms.name AS setting_name,
@@ -701,6 +714,27 @@ app.get('/api/providers/:providerId/model-settings', async (req: ExpressRequest,
         JOIN auth_user au
           ON CAST(SPLIT_PART(msv.key, ':', 2) AS INT) = au.id 
           AND SPLIT_PART(msv.key, ':', 1) = 'auth_user'
+          
+        UNION ALL
+        
+        -- All model settings for this provider's pod (including those without overrides)
+        SELECT DISTINCT
+          ms.name AS setting_name,
+          'Default' AS provider_name,
+          NULL AS provider_id,
+          ms.value AS default_value,
+          NULL AS override_value,
+          NULL AS percent_enabled,
+          'default' AS override_type,
+          '' AS business_unit_name,
+          '' AS user_name,
+          NULL AS user_id,
+          ms.pod_prefix AS pod,
+          NULL AS override_updated_on,
+          ms.description AS setting_description
+        FROM django_model_settings_modelsetting ms
+        CROSS JOIN provider_pod pp
+        WHERE ms.pod_prefix = pp.pod
       )
       
       SELECT 

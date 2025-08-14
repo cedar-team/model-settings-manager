@@ -589,7 +589,7 @@ N/A`;
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-sm text-muted-foreground">
-                          {groupedProviderSettings.length} settings with overrides
+                          {groupedProviderSettings.length} model settings
                         </div>
                         <div className="flex gap-2">
                           <button
@@ -621,6 +621,10 @@ N/A`;
                       <div className="space-y-4">
                         {groupedProviderSettings.map((group) => {
                           const isExpanded = expandedSettings.has(group.settingName);
+                          const actualOverrides = group.overrides.filter(override => override.overrideType !== 'default');
+                          const defaultValue = group.overrides.find(override => override.overrideType === 'default')?.defaultValue || 
+                                              group.overrides[0]?.defaultValue || '';
+                          
                           return (
                             <div key={group.settingName} className="border border-border rounded-lg">
                               <button
@@ -636,7 +640,10 @@ N/A`;
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                      {group.overrides.length} override{group.overrides.length !== 1 ? 's' : ''}
+                                      {actualOverrides.length > 0 ? 
+                                        `${actualOverrides.length} override${actualOverrides.length !== 1 ? 's' : ''}` :
+                                        'Default only'
+                                      }
                                     </span>
                                     {isExpanded ? (
                                       <ChevronUp className="h-5 w-5 text-muted-foreground" />
@@ -659,11 +666,11 @@ N/A`;
                                     <div>
                                       <span className="text-xs text-muted-foreground">Value:</span>
                                       <div className="font-mono text-sm break-all mt-1">
-                                        {group.overrides[0].defaultValue.length > 50 ? (
+                                        {defaultValue.length > 50 ? (
                                           <>
                                             {expandedValues.has(`default-${group.settingName}`) 
-                                              ? group.overrides[0].defaultValue 
-                                              : truncateValue(group.overrides[0].defaultValue)}
+                                              ? defaultValue 
+                                              : truncateValue(defaultValue)}
                                             <button
                                               onClick={() => toggleValueExpansion(`default-${group.settingName}`)}
                                               className="ml-2 text-xs text-primary hover:underline"
@@ -672,70 +679,80 @@ N/A`;
                                             </button>
                                           </>
                                         ) : (
-                                          group.overrides[0].defaultValue
+                                          defaultValue
                                         )}
                                       </div>
                                     </div>
                                   </div>
 
-                                  {/* Overrides Section */}
-                                  <div className="p-4 space-y-3">
-                                    <h5 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                                      Overrides
-                                    </h5>
-                                    {group.overrides.map((override, index) => (
-                                      <div key={index} className="bg-card border rounded-lg p-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-2 py-1 rounded ${
-                                              override.overrideType === 'provider' ? 'bg-blue-100 text-blue-800' :
-                                              override.overrideType === 'business_unit' ? 'bg-green-100 text-green-800' :
-                                              'bg-purple-100 text-purple-800'
-                                            }`}>
-                                              {override.overrideType === 'business_unit' ? 'PBU' : override.overrideType}
-                                            </span>
-                                            <span className="font-medium">
-                                              {override.overrideType === 'business_unit' && override.businessUnitName 
-                                                ? override.businessUnitName 
-                                                : override.overrideType === 'user' 
-                                                ? `User ID: ${override.userId}` 
-                                                : override.providerName}
-                                            </span>
+                                  {/* Overrides Section - only show if there are actual overrides */}
+                                  {actualOverrides.length > 0 && (
+                                    <div className="p-4 space-y-3">
+                                      <h5 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                                        Overrides
+                                      </h5>
+                                      {actualOverrides.map((override, index) => (
+                                        <div key={index} className="bg-card border rounded-lg p-3">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <span className={`text-xs px-2 py-1 rounded ${
+                                                override.overrideType === 'provider' ? 'bg-blue-100 text-blue-800' :
+                                                override.overrideType === 'business_unit' ? 'bg-green-100 text-green-800' :
+                                                'bg-purple-100 text-purple-800'
+                                              }`}>
+                                                {override.overrideType === 'business_unit' ? 'PBU' : override.overrideType}
+                                              </span>
+                                              <span className="font-medium">
+                                                {override.overrideType === 'business_unit' && override.businessUnitName 
+                                                  ? override.businessUnitName 
+                                                  : override.overrideType === 'user' 
+                                                  ? `User ID: ${override.userId}` 
+                                                  : override.providerName}
+                                              </span>
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                              {override.percentEnabled}% enabled
+                                            </div>
                                           </div>
-                                          <div className="text-xs text-muted-foreground">
-                                            {override.percentEnabled}% enabled
+                                          
+                                          <div>
+                                            <span className="text-xs text-muted-foreground">Override Value:</span>
+                                            <div className="font-mono text-sm break-all mt-1">
+                                              {override.overrideValue && override.overrideValue.length > 50 ? (
+                                                <>
+                                                  {expandedValues.has(`override-${override.settingName}-${index}`) 
+                                                    ? override.overrideValue 
+                                                    : truncateValue(override.overrideValue)}
+                                                  <button
+                                                    onClick={() => toggleValueExpansion(`override-${override.settingName}-${index}`)}
+                                                    className="ml-2 text-xs text-primary hover:underline"
+                                                  >
+                                                    {expandedValues.has(`override-${override.settingName}-${index}`) ? 'Show less' : 'Show more'}
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                override.overrideValue || 'N/A'
+                                              )}
+                                            </div>
                                           </div>
+                                          
+                                          {override.overrideUpdatedOn && (
+                                            <div className="mt-2 text-xs text-muted-foreground">
+                                              Updated: {new Date(override.overrideUpdatedOn).toLocaleString()}
+                                            </div>
+                                          )}
                                         </div>
-                                        
-                                        <div>
-                                          <span className="text-xs text-muted-foreground">Override Value:</span>
-                                          <div className="font-mono text-sm break-all mt-1">
-                                            {override.overrideValue.length > 50 ? (
-                                              <>
-                                                {expandedValues.has(`override-${override.settingName}-${index}`) 
-                                                  ? override.overrideValue 
-                                                  : truncateValue(override.overrideValue)}
-                                                <button
-                                                  onClick={() => toggleValueExpansion(`override-${override.settingName}-${index}`)}
-                                                  className="ml-2 text-xs text-primary hover:underline"
-                                                >
-                                                  {expandedValues.has(`override-${override.settingName}-${index}`) ? 'Show less' : 'Show more'}
-                                                </button>
-                                              </>
-                                            ) : (
-                                              override.overrideValue
-                                            )}
-                                          </div>
-                                        </div>
-                                        
-                                        {override.overrideUpdatedOn && (
-                                          <div className="mt-2 text-xs text-muted-foreground">
-                                            Updated: {new Date(override.overrideUpdatedOn).toLocaleString()}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* No Overrides Message */}
+                                  {actualOverrides.length === 0 && (
+                                    <div className="p-4 text-center text-muted-foreground">
+                                      <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                      <p className="text-sm">This setting uses only the default value</p>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

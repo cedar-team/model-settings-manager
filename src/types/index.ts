@@ -49,7 +49,7 @@ export interface ProviderModelSetting {
   defaultValue: string;
   overrideValue: string;
   percentEnabled: number;
-  overrideType: 'provider' | 'business_unit' | 'user';
+  overrideType: 'provider' | 'business_unit' | 'user' | 'default';
   businessUnitName: string;
   userName: string;
   userId: string;
