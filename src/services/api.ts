@@ -119,6 +119,54 @@ class ApiService {
     }
   }
 
+  async getAllProviders(useCache: boolean = true): Promise<any[]> {
+    const cacheKey = CACHE_KEYS.PROVIDERS || 'providers';
+    
+    // Check cache first if useCache is true
+    if (useCache) {
+      const cached = cacheService.get<any[]>(cacheKey);
+      if (cached) {
+        console.log('📦 Using cached providers data');
+        return cached;
+      }
+    }
+
+    console.log('🌐 Fetching fresh providers data');
+    const response = await this.request<{success: boolean, data: any[], count: number}>('/providers');
+    
+    if (response.success) {
+      // Cache the response
+      cacheService.set(cacheKey, response.data);
+      return response.data;
+    } else {
+      throw new Error('Failed to load providers');
+    }
+  }
+
+  async getProviderModelSettings(providerId: string, useCache: boolean = true): Promise<any[]> {
+    const cacheKey = `provider_model_settings_${providerId}`;
+    
+    // Check cache first if useCache is true
+    if (useCache) {
+      const cached = cacheService.get<any[]>(cacheKey);
+      if (cached) {
+        console.log(`📦 Using cached provider model settings data for provider ${providerId}`);
+        return cached;
+      }
+    }
+
+    console.log(`🌐 Fetching fresh provider model settings for provider ${providerId}`);
+    const response = await this.request<{success: boolean, data: any[], count: number, providerId: string}>(`/providers/${providerId}/model-settings`);
+    
+    if (response.success) {
+      // Cache the response
+      cacheService.set(cacheKey, response.data);
+      return response.data;
+    } else {
+      throw new Error('Failed to load provider model settings');
+    }
+  }
+
   // Method to clear all caches (useful for debugging or manual clearing)
   clearAllCaches(): void {
     cacheService.clearAll();

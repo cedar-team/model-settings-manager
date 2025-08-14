@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DataTable } from '@/components/data-table';
 import { Tooltip } from '@/components/tooltip';
-import { Database, RefreshCw, BarChart3, Zap, Copy, Check } from 'lucide-react';
+import { Database, RefreshCw, BarChart3, Zap, Copy, Check, Building, Settings, Search, ChevronDown, ChevronUp, Expand, Minimize } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { cacheService } from '@/services/cache';
-import { ModelSetting } from '@/types';
+import { ModelSetting, Provider, ProviderModelSetting, GroupedProviderModelSetting } from '@/types';
 
 const Index = () => {
   const [modelSettings, setModelSettings] = useState<ModelSetting[]>([]);
@@ -15,6 +15,20 @@ const Index = () => {
   const [snowflakeAvailable, setSnowflakeAvailable] = useState<boolean | null>(null);
   const [checkingSnowflake, setCheckingSnowflake] = useState(true);
   const [copied, setCopied] = useState(false);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'overview' | 'providers'>('overview');
+  
+  // Provider tab state
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [groupedProviderSettings, setGroupedProviderSettings] = useState<GroupedProviderModelSetting[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(false);
+  const [loadingProviderSettings, setLoadingProviderSettings] = useState(false);
+  const [providerError, setProviderError] = useState<string>('');
+  const [providerSearchTerm, setProviderSearchTerm] = useState<string>('');
+  const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
+  const [expandedSettings, setExpandedSettings] = useState<Set<string>>(new Set());
 
   const PR_TEMPLATE = `### Rationale
 This model setting is no longer in use.
@@ -147,11 +161,101 @@ N/A`;
     }
   };
 
+  const loadProviders = async () => {
+    try {
+      setLoadingProviders(true);
+      setProviderError('');
+      const data = await apiService.getAllProviders(true);
+      console.log('Loaded providers:', data);
+      setProviders(data);
+    } catch (err) {
+      console.error('Failed to load providers:', err);
+      setProviderError(err instanceof Error ? err.message : 'Failed to load providers');
+    } finally {
+      setLoadingProviders(false);
+    }
+  };
+
+  const loadProviderSettings = async (providerId: string) => {
+    try {
+      setLoadingProviderSettings(true);
+      setProviderError('');
+      const data = await apiService.getProviderModelSettings(providerId, true);
+      console.log('Loaded provider settings:', data);
+      
+      // Group by setting name
+      const grouped = data.reduce((acc: GroupedProviderModelSetting[], setting: ProviderModelSetting) => {
+        const existingGroup = acc.find(group => group.settingName === setting.settingName);
+        if (existingGroup) {
+          existingGroup.overrides.push(setting);
+        } else {
+          acc.push({
+            settingName: setting.settingName,
+            description: setting.settingDescription,
+            overrides: [setting]
+          });
+        }
+        return acc;
+      }, []);
+      
+      setGroupedProviderSettings(grouped);
+    } catch (err) {
+      console.error('Failed to load provider settings:', err);
+      setProviderError(err instanceof Error ? err.message : 'Failed to load provider settings');
+    } finally {
+      setLoadingProviderSettings(false);
+    }
+  };
+
+  const handleProviderSelect = async (provider: Provider) => {
+    setSelectedProvider(provider);
+    await loadProviderSettings(provider.id);
+  };
+
+  const toggleValueExpansion = (valueId: string) => {
+    const newExpanded = new Set(expandedValues);
+    if (newExpanded.has(valueId)) {
+      newExpanded.delete(valueId);
+    } else {
+      newExpanded.add(valueId);
+    }
+    setExpandedValues(newExpanded);
+  };
+
+  const truncateValue = (value: string, maxLength: number = 50) => {
+    if (value.length <= maxLength) return value;
+    return value.substring(0, maxLength) + '...';
+  };
+
+  const filteredProviders = providers.filter(provider =>
+    provider.name.toLowerCase().includes(providerSearchTerm.toLowerCase())
+  );
+
+  const toggleSettingExpansion = (settingName: string) => {
+    const newExpanded = new Set(expandedSettings);
+    if (newExpanded.has(settingName)) {
+      newExpanded.delete(settingName);
+    } else {
+      newExpanded.add(settingName);
+    }
+    setExpandedSettings(newExpanded);
+  };
+
+  const expandAllSettings = () => {
+    const allSettingNames = new Set(groupedProviderSettings.map(group => group.settingName));
+    setExpandedSettings(allSettingNames);
+  };
+
+  const collapseAllSettings = () => {
+    setExpandedSettings(new Set());
+  };
+
   useEffect(() => {
     const initializeApp = async () => {
       await checkSnowflakeAvailability();
       if (snowflakeAvailable !== false) {
         await loadModelSettings();
+        await loadProviders();
       }
     };
     initializeApp();
@@ -160,6 +264,7 @@ N/A`;
   useEffect(() => {
     if (snowflakeAvailable === true && modelSettings.length === 0 && !loading) {
       loadModelSettings();
+      loadProviders();
     }
   }, [snowflakeAvailable]);
 
@@ -234,12 +339,19 @@ N/A`;
       </div>
 
       <div className="container mx-auto px-6 py-8 space-y-8">
-        {/* Error Message */}
+        {/* Global Error Messages */}
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
             <p className="font-medium">Error loading model settings:</p>
             <p className="text-sm">{error}</p>
             <p className="text-sm">Are you connected to Tailscale?</p>
+          </div>
+        )}
+
+        {providerError && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+            <p className="font-medium">Error loading provider data:</p>
+            <p className="text-sm">{providerError}</p>
           </div>
         )}
 
@@ -275,72 +387,377 @@ N/A`;
           </div>
         )}
 
-        {/* Loading Model Settings */}
-        {!checkingSnowflake && snowflakeAvailable === true && loading && (
-          <div className="text-center py-12">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">Loading model settings from Snowflake...</p>
-          </div>
-        )}
-
-        {/* Stats Section */}
-        {!checkingSnowflake && snowflakeAvailable === true && !loading && modelSettings.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-6">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Overview</h2>
-              {cacheService.has('model_settings') && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-                  <Zap className="h-3 w-3" />
-                  Cached data
-                </div>
-              )}
+        {/* Main Content - only show when Snowflake is available */}
+        {!checkingSnowflake && snowflakeAvailable === true && (
+          <>
+            {/* Tab Navigation */}
+            <div className="border-b border-border">
+              <nav className="flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'overview'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  } transition-colors`}
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Overview
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('providers')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'providers'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  } transition-colors`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Providers
+                  </div>
+                </button>
+              </nav>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <div className="bg-card rounded-lg p-6 border shadow-sm">
-                <div className="text-2xl font-bold text-primary">{stats.total}</div>
-                <div className="text-sm text-muted-foreground">Total Model Settings</div>
-              </div>
-              <div className="bg-card rounded-lg p-6 border shadow-sm">
-                <div className="text-2xl font-bold text-success">{stats.inUse}</div>
-                <div className="text-sm text-muted-foreground">In Use</div>
-              </div>
-              <div className="bg-card rounded-lg p-6 border shadow-sm">
-                <div className="text-2xl font-bold text-warning">{stats.unused}</div>
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  Unused
-                  <Tooltip content="Model settings that are not actively configured (all instances use default values)." />
-                </div>
-              </div>
-              <div className="bg-card rounded-lg p-6 border shadow-sm">
-                <div className="text-2xl font-bold text-destructive">{stats.missingDescriptions}</div>
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  Missing Descriptions
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
 
-        {/* Data Table */}
-        {!checkingSnowflake && snowflakeAvailable === true && !loading && modelSettings.length > 0 && (
-          <section>
-            <DataTable data={modelSettings} />
-          </section>
-        )}
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <>
+                {/* Loading Model Settings */}
+                {loading && (
+                  <div className="text-center py-12">
+                    <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                    <p className="text-muted-foreground">Loading model settings from Snowflake...</p>
+                  </div>
+                )}
 
-        {/* No Data Message */}
-        {!checkingSnowflake && snowflakeAvailable === true && !loading && !error && modelSettings.length === 0 && (
-          <section className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <Database className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No Model Settings Found</h3>
-              <p className="text-muted-foreground">
-                No model settings were found in the database. Try refreshing the data or check your Snowflake connection.
-              </p>
-            </div>
-          </section>
+                {/* Stats Section */}
+                {!loading && modelSettings.length > 0 && (
+                  <section>
+                    <div className="flex items-center gap-2 mb-6">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                      <h2 className="text-xl font-semibold">Overview</h2>
+                      {cacheService.has('model_settings') && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                          <Zap className="h-3 w-3" />
+                          Cached data
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <div className="bg-card rounded-lg p-6 border shadow-sm">
+                        <div className="text-2xl font-bold text-primary">{stats.total}</div>
+                        <div className="text-sm text-muted-foreground">Total Model Settings</div>
+                      </div>
+                      <div className="bg-card rounded-lg p-6 border shadow-sm">
+                        <div className="text-2xl font-bold text-success">{stats.inUse}</div>
+                        <div className="text-sm text-muted-foreground">In Use</div>
+                      </div>
+                      <div className="bg-card rounded-lg p-6 border shadow-sm">
+                        <div className="text-2xl font-bold text-warning">{stats.unused}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-1">
+                          Unused
+                          <Tooltip content="Model settings that are not actively configured (all instances use default values)." />
+                        </div>
+                      </div>
+                      <div className="bg-card rounded-lg p-6 border shadow-sm">
+                        <div className="text-2xl font-bold text-destructive">{stats.missingDescriptions}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-1">
+                          Missing Descriptions
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Data Table */}
+                {!loading && modelSettings.length > 0 && (
+                  <section>
+                    <DataTable data={modelSettings} />
+                  </section>
+                )}
+
+                {/* No Data Message */}
+                {!loading && !error && modelSettings.length === 0 && (
+                  <section className="text-center py-12">
+                    <div className="max-w-md mx-auto">
+                      <Database className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">No Model Settings Found</h3>
+                      <p className="text-muted-foreground">
+                        No model settings were found in the database. Try refreshing the data or check your Snowflake connection.
+                      </p>
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+
+            {/* Providers Tab */}
+            {activeTab === 'providers' && (
+              <>
+                <div className="flex items-center gap-2 mb-6">
+                  <Building className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Provider Model Settings</h2>
+                </div>
+
+                {/* Provider Selection */}
+                <div className="bg-card rounded-lg p-6 border shadow-sm mb-6">
+                  <h3 className="text-lg font-medium mb-4">Select Provider</h3>
+                  
+                  {!loadingProviders && providers.length > 0 && (
+                    <div className="mb-4">
+                      <div className="relative">
+                        <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Search providers..."
+                          value={providerSearchTerm}
+                          onChange={(e) => setProviderSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {loadingProviders && (
+                    <div className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+                      <p className="text-sm text-muted-foreground">Loading providers...</p>
+                    </div>
+                  )}
+
+                  {!loadingProviders && providers.length > 0 && (
+                    <>
+                      {filteredProviders.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredProviders.map((provider) => (
+                            <button
+                              key={provider.id}
+                              onClick={() => handleProviderSelect(provider)}
+                              className={`p-4 text-left border rounded-lg transition-colors ${
+                                selectedProvider?.id === provider.id
+                                  ? 'border-primary bg-primary/5 text-primary'
+                                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                              }`}
+                            >
+                              <div className="font-medium">{provider.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {provider.businessUnitCount} Business Units
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Search className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">No providers match your search</p>
+                          <button
+                            onClick={() => setProviderSearchTerm('')}
+                            className="text-sm text-primary hover:underline mt-2"
+                          >
+                            Clear search
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {!loadingProviders && providers.length === 0 && (
+                    <div className="text-center py-8">
+                      <Building className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No providers found</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Provider Settings */}
+                {selectedProvider && (
+                  <div className="bg-card rounded-lg p-6 border shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-medium">
+                          Model Settings for {selectedProvider.name}
+                        </h3>
+                        {groupedProviderSettings.length > 0 && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Pod: {groupedProviderSettings[0].overrides[0].pod}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm text-muted-foreground">
+                          {groupedProviderSettings.length} settings with overrides
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={expandAllSettings}
+                            className="flex items-center gap-1 px-3 py-1 text-xs bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+                          >
+                            <Expand className="h-3 w-3" />
+                            Expand All
+                          </button>
+                          <button
+                            onClick={collapseAllSettings}
+                            className="flex items-center gap-1 px-3 py-1 text-xs bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition-colors"
+                          >
+                            <Minimize className="h-3 w-3" />
+                            Collapse All
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {loadingProviderSettings && (
+                      <div className="text-center py-12">
+                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                        <p className="text-muted-foreground">Loading provider settings...</p>
+                      </div>
+                    )}
+
+                    {!loadingProviderSettings && groupedProviderSettings.length > 0 && (
+                      <div className="space-y-4">
+                        {groupedProviderSettings.map((group) => {
+                          const isExpanded = expandedSettings.has(group.settingName);
+                          return (
+                            <div key={group.settingName} className="border border-border rounded-lg">
+                              <button
+                                onClick={() => toggleSettingExpansion(group.settingName)}
+                                className="w-full p-4 text-left hover:bg-muted/50 transition-colors rounded-t-lg"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium text-lg">{group.settingName}</h4>
+                                    {group.description && (
+                                      <p className="text-sm text-muted-foreground mt-1">{group.description}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                      {group.overrides.length} override{group.overrides.length !== 1 ? 's' : ''}
+                                    </span>
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                              
+                              {isExpanded && (
+                                <div className="border-t">
+                                  {/* Default Value Section */}
+                                  <div className="p-4 bg-muted/20 border-b">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800 font-medium">
+                                        Default
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-muted-foreground">Value:</span>
+                                      <div className="font-mono text-sm break-all mt-1">
+                                        {group.overrides[0].defaultValue.length > 50 ? (
+                                          <>
+                                            {expandedValues.has(`default-${group.settingName}`) 
+                                              ? group.overrides[0].defaultValue 
+                                              : truncateValue(group.overrides[0].defaultValue)}
+                                            <button
+                                              onClick={() => toggleValueExpansion(`default-${group.settingName}`)}
+                                              className="ml-2 text-xs text-primary hover:underline"
+                                            >
+                                              {expandedValues.has(`default-${group.settingName}`) ? 'Show less' : 'Show more'}
+                                            </button>
+                                          </>
+                                        ) : (
+                                          group.overrides[0].defaultValue
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Overrides Section */}
+                                  <div className="p-4 space-y-3">
+                                    <h5 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                                      Overrides
+                                    </h5>
+                                    {group.overrides.map((override, index) => (
+                                      <div key={index} className="bg-card border rounded-lg p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-xs px-2 py-1 rounded ${
+                                              override.overrideType === 'provider' ? 'bg-blue-100 text-blue-800' :
+                                              override.overrideType === 'business_unit' ? 'bg-green-100 text-green-800' :
+                                              'bg-purple-100 text-purple-800'
+                                            }`}>
+                                              {override.overrideType === 'business_unit' ? 'PBU' : override.overrideType}
+                                            </span>
+                                            <span className="font-medium">
+                                              {override.overrideType === 'business_unit' && override.businessUnitName 
+                                                ? override.businessUnitName 
+                                                : override.overrideType === 'user' 
+                                                ? `User ID: ${override.userId}` 
+                                                : override.providerName}
+                                            </span>
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {override.percentEnabled}% enabled
+                                          </div>
+                                        </div>
+                                        
+                                        <div>
+                                          <span className="text-xs text-muted-foreground">Override Value:</span>
+                                          <div className="font-mono text-sm break-all mt-1">
+                                            {override.overrideValue.length > 50 ? (
+                                              <>
+                                                {expandedValues.has(`override-${override.settingName}-${index}`) 
+                                                  ? override.overrideValue 
+                                                  : truncateValue(override.overrideValue)}
+                                                <button
+                                                  onClick={() => toggleValueExpansion(`override-${override.settingName}-${index}`)}
+                                                  className="ml-2 text-xs text-primary hover:underline"
+                                                >
+                                                  {expandedValues.has(`override-${override.settingName}-${index}`) ? 'Show less' : 'Show more'}
+                                                </button>
+                                              </>
+                                            ) : (
+                                              override.overrideValue
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        {override.overrideUpdatedOn && (
+                                          <div className="mt-2 text-xs text-muted-foreground">
+                                            Updated: {new Date(override.overrideUpdatedOn).toLocaleString()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!loadingProviderSettings && groupedProviderSettings.length === 0 && (
+                      <div className="text-center py-12">
+                        <Settings className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                        <h3 className="text-lg font-medium mb-2">No Settings Found</h3>
+                        <p className="text-muted-foreground">
+                          No model settings with overrides found for this provider.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

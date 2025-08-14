@@ -36,5 +36,33 @@ export interface Stats {
   unused: number;
 }
 
+export interface Provider {
+  id: string;
+  name: string;
+  businessUnitCount: number;
+}
+
+export interface ProviderModelSetting {
+  settingName: string;
+  providerName: string;
+  providerId: string;
+  defaultValue: string;
+  overrideValue: string;
+  percentEnabled: number;
+  overrideType: 'provider' | 'business_unit' | 'user';
+  businessUnitName: string;
+  userName: string;
+  userId: string;
+  pod: string;
+  overrideUpdatedOn: string;
+  settingDescription: string;
+}
+
+export interface GroupedProviderModelSetting {
+  settingName: string;
+  description: string;
+  overrides: ProviderModelSetting[];
+}
+
 export type SortField = keyof ModelSetting;
 export type SortDirection = 'asc' | 'desc';
